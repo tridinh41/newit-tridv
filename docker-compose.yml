@@ -1,0 +1,89 @@
+version: '3.3'
+
+#Docker Networks
+networks:
+    laravel:
+        name: laravel
+        driver: bridge
+
+#Volumes
+volumes:
+    mysql:
+        driver: local
+
+services: 
+#Nginx Service
+    nginx:
+        image: nginx:stable-alpine
+        container_name: nginx
+        restart: unless-stopped
+        tty: true
+        ports:
+            - "8088:80"
+        volumes:
+            - ./src:/var/www/html
+            - ./nginx/default.conf:/etc/nginx/conf.d/default.conf
+        depends_on:
+            - php
+            - mysql
+            - phpmyadmin
+        networks: 
+            - laravel
+
+#MySQL Service
+    mysql:
+        image: mysql:5.7.34
+        container_name: mysql-laravel
+        command: --default-authentication-plugin=mysql_native_password
+        restart: unless-stopped
+        tty: true
+        ports: 
+            - "3307:3306"
+        volumes: 
+            - ./mysql:/var/lib/mysql
+            # - ./mysql/my.cnf:/etc/mysql/my.cnf
+        environment:
+            MYSQL_DATABASE: homestead
+            MYSQL_USER: root
+            MYSQL_PASSWORD: root
+            MYSQL_ROOT_PASSWORD: root
+            SERVICE_TAGS: dev
+            SERVICE_NAME: mysql
+        networks: 
+            - laravel
+        
+#PHP Service
+    php:
+        build:
+            context: .
+            dockerfile: Dockerfile
+        container_name: php
+        volumes:
+            - ./src:/var/www/html
+        ports: 
+            - "9000:9000"
+        depends_on:
+            - mysql
+        links:
+            - mysql
+        networks: 
+            - laravel
+#PHP Myadmin
+    phpmyadmin:
+        image: phpmyadmin/phpmyadmin
+        container_name: phpmyadmin-laravel
+        restart: always
+        ports:
+            - '8081:80'
+        environment:
+            PMA_HOST: mysql
+            MYSQL_ROOT_PASWORD: secret
+            PHP_UPLOAD_MAX_FILESIZE: 256MB
+            PMA_ARBITRARY: 1
+            UPLOAD_LIMIT: 1G
+        depends_on:
+            - mysql
+        links:
+            - mysql
+        networks:
+            - laravel
